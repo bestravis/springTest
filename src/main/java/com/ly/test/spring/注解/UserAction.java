@@ -17,7 +17,7 @@ import com.ly.test.spring.aop.java¶¯Ì¬´úÀí.UserService;
  */
 public class UserAction
 {
-	@Autowired
+	@MyAutowired
 	private UserService userService;
 	
 	public void life()
@@ -25,6 +25,7 @@ public class UserAction
 		userService.eat();
 		userService.sleep();
 	}
+	
 	/**
 	 * @return the userService
 	 */

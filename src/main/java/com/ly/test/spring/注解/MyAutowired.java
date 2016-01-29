@@ -23,7 +23,7 @@ import java.lang.annotation.Target;
 
 // 注解使用地方
 @Target(ElementType.FIELD)
-public @interface Autowired
+public @interface MyAutowired
 {
 	//注解的name属性
     public String name() default "";  

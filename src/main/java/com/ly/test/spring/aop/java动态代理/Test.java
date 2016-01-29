@@ -27,12 +27,12 @@ public class Test
 		UserService proxy = (UserService) Proxy.newProxyInstance(userService.getClass().getClassLoader(), 
 				userService.getClass().getInterfaces(), 
 				new UserServiceInvocation(userService));
-		
+		System.out.println("====================================");
 		try
 		{
-			Thread.currentThread().sleep(3000000);
+//			Thread.currentThread().sleep(3000000);
 		}
-		catch (InterruptedException e)
+		catch (Exception e)
 		{
 			e.printStackTrace();
 		}

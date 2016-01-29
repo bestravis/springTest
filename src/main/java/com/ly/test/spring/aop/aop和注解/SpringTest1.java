@@ -1,13 +1,4 @@
-/**
- * 项目名称：spring
- * 文件包名：com.ly.test.spring.注解
- * 文件名称：AnnotationManager.java
- * 版本信息：SCEC_Branches
- * 生成日期：2016年1月27日 下午2:54:10
- * Copyright (c) 2015-2015深圳市泰久信息系统股份有限公司
- * 
- */
-package com.ly.test.spring.注解;
+package com.ly.test.spring.aop.aop和注解;
 
 import java.beans.IntrospectionException;
 import java.beans.Introspector;
@@ -16,37 +7,70 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 
+import com.ly.test.spring.注解.AnnotationManager;
+import com.ly.test.spring.注解.MyAutowired;
+
 /**
- * 加载配置的bean，并扫描bean的描述，处理器注解。
+ * 在之前注解的基础上，集成AOP的功能。
  * @author ly
  *
  */
-public class AnnotationManager
+public class SpringTest1
 {
+	private AnnotationManager annotationManager;
+	
+	/**
+	 * 保存AOP的配置文件
+	 */
+	private Map<String, String> aopConfig = new HashMap<String, String>();
 	// 保存配置的对象
 	private Map<String, String> annoConfig = new HashMap<String, String>();
 	
 	// 保存加载到VM的对象
 	private Map<String, Object> objs = new HashMap<String, Object>();
 	
-	// 保存加载到VM的对象,方便AOP注解
-	private Map<Class, Object> clsObjs = new HashMap<Class, Object>();
-	
-	public AnnotationManager(Properties prop)
+	public SpringTest1(String annoFile, String aopFile)
 	{
-		readProp(prop);
+		Properties annoProp = new Properties();
+		Properties aopProp = new Properties();
 		
-		initObjects();
-		
-		annotationInject();
+		try
+		{
+			annoProp.load(new FileInputStream(new File(annoFile)));
+			aopProp.load(new FileInputStream(new File(aopFile)));
+			
+			// 1、 读取AOP和注解的配置
+			readConfig(aopProp, annoProp);
+			
+			// 2、 读取AOP和注解的配置
+			initObjects();
+			
+			// 3、处理AOP
+			initAop();
+			
+			// 4、处理注解
+			annotationInject();
+		}
+		catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
 	}
 	
 	/**
@@ -152,7 +176,8 @@ public class AnnotationManager
 			e.printStackTrace();
 		}
 	}
-
+	
+	
 	/**
 	 * 初始化配置的每个类
 	 */
@@ -166,8 +191,6 @@ public class AnnotationManager
 				
 				Object obj = Class.forName(entry.getValue()).newInstance();
 				this.objs.put(entry.getKey(), obj);
-				
-				this.clsObjs.put(obj.getClass(), obj);
 			}
 			catch (InstantiationException e)
 			{
@@ -183,39 +206,116 @@ public class AnnotationManager
 			}
 		}
 	}
-	private void readProp(Properties prop)
+	
+	/**
+	 * 读取配置文件，放入Map中，方便遍历
+	 * @param aopProp
+	 */
+	private void readConfig(Properties aopProp, Properties annoProp)
 	{
-		for (Entry<Object, Object> obj : prop.entrySet())
+		for (Entry<Object, Object> obj : aopProp.entrySet())
+		{
+			this.aopConfig.put(obj.getKey().toString(), obj.getValue().toString());
+		}
+		
+		for (Entry<Object, Object> obj : annoProp.entrySet())
 		{
 			this.annoConfig.put(obj.getKey().toString(), obj.getValue().toString());
 		}
 	}
+	
 	/**
-	 * @param args
-	 * @throws IOException 
-	 * @throws FileNotFoundException 
+	 * 处理AOP，将配置的AOP对象修改为Proxy。
 	 */
-	public static void main(String[] args) throws FileNotFoundException, IOException
+	private void initAop()
 	{
-		Properties prop = new Properties();
-		String filePath = "D:\\Work\\Workspace\\scec_dis\\spring\\src\\main\\resources\\anno.properties";
-		prop.load(new FileInputStream(new File(filePath)));
-		
-		AnnotationManager annot = new AnnotationManager(prop);
-		UserAction userAction = (UserAction) annot.getBean("userAction");
-		userAction.life();
+		for (Map.Entry<String, String> entry : this.aopConfig.entrySet())
+		{
+			System.out.println(MessageFormat.format("当前处理的AOP配置【{0}】和需要AOP的类【{1}】", entry.getKey(), entry.getValue()));
+			Class cls = null;
+			try
+			{
+				// 获取当前需要被AOP的对象的Class
+				cls = Class.forName(entry.getKey());
+				
+				Object obj = null;
+				String key = null;
+				
+				// 遍历查找，该对象被初始化的实例
+				for (Map.Entry<String, Object> annObj : objs.entrySet())
+				{
+					Object tmpObj = annObj.getValue();
+					System.out.println(MessageFormat.format("当前遍历的类【{0}】和需要AOP的类【{1}】", tmpObj.getClass(), cls));
+					if (tmpObj.getClass().isAssignableFrom(cls))
+					{
+						obj = annObj.getValue();
+						key = annObj.getKey();
+						break;
+					}
+				}
+				
+				if (obj != null)
+				{
+					System.out.println(MessageFormat.format("需要被代理的对象【{0}】", obj));
+					
+					// 实例化拦截器对象
+					Constructor constructor = Class.forName(entry.getValue()).getConstructor(new Object().getClass());
+					Object proxy = constructor.newInstance(obj);
+					
+					// 重新获取loader中的对象
+					Object newObj = Proxy.newProxyInstance(obj.getClass().getClassLoader(),
+							obj.getClass().getInterfaces(), (InvocationHandler) proxy);
+					
+					// 重新将对象加入到Map中。
+					System.out.println(MessageFormat.format("重新代理后的对象键【{0}】和值【{1}】", key, newObj));
+					this.objs.put(key, newObj);
+				}
+				else
+				{
+					System.out.println(MessageFormat.format("对象[{0}]没有配置bean，不能被AOP", cls));
+				}
+			}
+			catch (ClassNotFoundException e)
+			{
+				e.printStackTrace();
+			}
+			catch (NoSuchMethodException e)
+			{
+				e.printStackTrace();
+			}
+			catch (SecurityException e)
+			{
+				e.printStackTrace();
+			}
+			catch (InstantiationException e)
+			{
+				e.printStackTrace();
+			}
+			catch (IllegalAccessException e)
+			{
+				e.printStackTrace();
+			}
+			catch (IllegalArgumentException e)
+			{
+				e.printStackTrace();
+			}
+			catch (InvocationTargetException e)
+			{
+				e.printStackTrace();
+			}
+			
+		}
 	}
+	public static void main(String[] args)
+	{
+		// TODO Auto-generated method stub
 
+	}
+	
 	public Object getBean(String beanName)
 	{
 		return this.objs.get(beanName);
 	}
-	
-	public Object getBeanByClass(Class cls)
-	{
-		return this.clsObjs.get(cls);
-	}
-
 	/**
 	 * @return the objs
 	 */
@@ -223,7 +323,6 @@ public class AnnotationManager
 	{
 		return objs;
 	}
-
 	/**
 	 * @param objs the objs to set
 	 */
@@ -231,4 +330,5 @@ public class AnnotationManager
 	{
 		this.objs = objs;
 	}
+	
 }

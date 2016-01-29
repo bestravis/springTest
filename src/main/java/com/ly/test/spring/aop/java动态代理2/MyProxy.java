@@ -4,6 +4,11 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
+/**
+ * Invocation动态代理实现
+ * @author ly
+ *
+ */
 public class MyProxy implements InvocationHandler
 {
 	// 目标对象，也就是我们主要的业务，主要目的要做什么事  

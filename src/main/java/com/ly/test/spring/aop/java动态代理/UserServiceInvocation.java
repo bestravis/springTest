@@ -30,6 +30,7 @@ public class UserServiceInvocation implements InvocationHandler
 	public void before()
 	{
 		this.startTime = System.nanoTime();
+		System.out.println("----------------before-------------------");
 	}
 	
 	/* (non-Javadoc)
@@ -56,5 +57,6 @@ public class UserServiceInvocation implements InvocationHandler
 	public void after()
 	{
 		System.out.println("运行时间：" + (System.nanoTime() - startTime) / 1000000);
+		System.out.println("----------------after-------------------");
 	}
 }
